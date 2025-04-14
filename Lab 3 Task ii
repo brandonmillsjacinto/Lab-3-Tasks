@@ -85,7 +85,7 @@ void alarmDeactivationUpdate() // This handles the deactivation for the alarm
 {
     if ( numberOfIncorrectCodes < 5 ) { // If the number of incorrect attempts is less than 5...
         if ( aButton && bButton && cButton && dButton && !enterButton ) {
-            incorrectCodeLed = OFF; // Lines 80-81 resets the incorrect code led if ABCD is pressed but the enter has not been pressed.
+            incorrectCodeLed = OFF; // Lines 87-88 resets the incorrect code led if ABCD is pressed but the enter has not been pressed.
         }
         if ( enterButton && !incorrectCodeLed && alarmState ) { // If the code entered is corrected and enter is pressed and the alarm is active...
             if ( aButton && bButton && !cButton && !dButton ) { // The correct code is A, B, not C and not D
