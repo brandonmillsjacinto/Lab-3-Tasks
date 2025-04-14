@@ -3,38 +3,36 @@ Author: Brandon Mills Jacinto
 Date: 13/02/2025
 */
 
-#include "mbed.h"
-#include "arm_book_lib.h"
+#include "mbed.h" // I used the Mbed Library for Hardware control.
+#include "arm_book_lib.h" // I used the arm book library to use additional functions (i.e. ON, OFF, LED control etc.).
 
-// Digital input pins
-DigitalIn enterButton(BUTTON1);
-DigitalIn gasDetector(D2);
-DigitalIn overTempDetector(D3);
-DigitalIn aButton(D4);
-DigitalIn bButton(D5);
-DigitalIn cButton(D6);
-DigitalIn dButton(D7);
-DigitalIn button2(D8); 
-DigitalIn button3(D9);
+DigitalIn enterButton(BUTTON1); // The enter button is mapped to BUTTON 1 (or B1 on the board) that is used to confirm any actions or reset the alarm.
+    DigitalIn gasDetector(D2); // This defines a digital input for the gas detector sensor at pin D2.
+    DigitalIn overTempDetector(D3); // This defines a digital input for the over-temperature sensor at pin D3.
+    DigitalIn aButton(D4); // Button A is located on Pin D4 and is the first digit of the 4-digit code.
+    DigitalIn bButton(D5); // Button B is located on Pin D5 and is the second digit of the 4-digit code.
+    DigitalIn cButton(D6); // Button C is located on Pin D6 and is the third digit of the 4-digit code.
+    DigitalIn dButton(D7); // Button D is located on Pin D4 and is the fourth digit of the 4-digit code
+DigitalIn button2(D8); // Button 2 is located on Pin D8
+DigitalIn button3(D9); // Button 3 is located on Pin D9
 
-// Digital output pins
-DigitalOut alarmLed(LED1);
-DigitalOut incorrectCodeLed(LED3);
-DigitalOut systemBlockedLed(LED2);
+ DigitalOut alarmLed(LED1); // LED1 on the NUCLEO board represents whether the alarm is ON or OFF.
+    DigitalOut incorrectCodeLed(LED3); // This line turns off the incorrect code LED (LED3) to reset the indication of an incorrect code entry. 
+    DigitalOut systemBlockedLed(LED2); // This lines turns off the system blocked LED (LED2) to reset any previous blocked state indication.
 
-// UART serial interface
-UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 
-// Global variables
-bool alarmState = OFF;
-int numberOfIncorrectCodes = 0;
-Ticker statusTicker;  // Ticker to periodically send status
+UnbufferedSerial uartUsb(USBTX, USBRX, 115200); // Serial communication at 115200 baud rate
+
+ bool alarmState = OFF; // Bool variable to keep track of whether the alarm is on (true) or off (false).
+    int numberOfIncorrectCodes = 0; // This line is a counter for the number of incorrect code attempts.
+
+Ticker alarmStateTicker;  // Ticker to send alarm state at regular intervals
 
 // Safe Limits (Thresholds)
 const float MAX_SAFE_TEMPERATURE = 40.0f;  // Temperature threshold in Celsius
 const bool MAX_SAFE_GAS_LEVEL = true;  // Gas level threshold: true means gas is detected
 
-// Function prototypes
+// Lines 36-43 are declaring the functions
 void inputsInit();
 void outputsInit();
 void alarmActivationUpdate();
@@ -46,19 +44,20 @@ void checkForWarnings();  // Check if any limit is exceeded and send warnings
 
 int main()
 {
-    inputsInit();
-    outputsInit();
+     inputsInit(); // Initialises input pins
+    outputsInit(); // Initialises output pins
 
-    // Set up the ticker to call sendStatus() every 5 seconds
-    statusTicker.attach(&sendStatus, 5.0);  // Period is 5 seconds
+    // Set up the Ticker to call sendAlarmState() every 5 seconds
+    alarmStateTicker.attach(&sendAlarmState, 5.0);  // Changed interval to 5 seconds
 
     while (true) {
-        alarmActivationUpdate();
-        alarmDeactivationUpdate();
-        uartTask();  // This will still handle incoming UART commands
+         alarmActivationUpdate(); // Updates alarm activation
+        alarmDeactivationUpdate(); // Updates alarm deactivation
+        uartTask(); // Handles UART communication
     }
 }
 
+// Lines 61-70 initialises pins with pull-down resistors
 void inputsInit()
 {
     gasDetector.mode(PullDown);
@@ -71,6 +70,7 @@ void inputsInit()
     button3.mode(PullDown);
 }
 
+// Lines 74-78 initialises output pins to OFF state
 void outputsInit()
 {
     alarmLed = OFF;
@@ -78,66 +78,65 @@ void outputsInit()
     systemBlockedLed = OFF;
 }
 
-void alarmActivationUpdate()
+void alarmActivationUpdate() // Updates alarm state based on gas and temp sensors
 {
-    if ( gasDetector || overTempDetector ) {
-        alarmState = ON;
+     if ( gasDetector || overTempDetector ) { // If gas or temp sensor is triggered...
+        alarmState = ON; // ... Activate the alarm
     }
-    alarmLed = alarmState;
+    alarmLed = alarmState; // Set the alarm LED to the current alarm state
 }
 
-void alarmDeactivationUpdate()
+void alarmDeactivationUpdate() // This handles the deactivation for the alarm
 {
-    if ( numberOfIncorrectCodes < 5 ) {
+    if ( numberOfIncorrectCodes < 5 ) { // If the number of incorrect attempts is less than 5...
         if ( aButton && bButton && cButton && dButton && !enterButton ) {
-            incorrectCodeLed = OFF;
+            incorrectCodeLed = OFF; // Lines 92-93 resets the incorrect code led if ABCD is pressed but the enter has not been pressed.
         }
-        if ( enterButton && !incorrectCodeLed && alarmState ) {
-            if ( aButton && bButton && !cButton && !dButton ) {
-                alarmState = OFF;
-                numberOfIncorrectCodes = 0;
-            } else {
-                incorrectCodeLed = ON;
-                numberOfIncorrectCodes = numberOfIncorrectCodes + 1;
+        if ( enterButton && !incorrectCodeLed && alarmState ) { // If the code entered is corrected and enter is pressed and the alarm is active...
+            if ( aButton && bButton && !cButton && !dButton ) { // The correct code is A, B, not C and not D
+                alarmState = OFF; // ... Deactivate the alarm
+                numberOfIncorrectCodes = 0; // Reset the incorrect code counter
+            } else { // Else...
+                incorrectCodeLed = ON; // ... Turn on the incorrect LED
+                numberOfIncorrectCodes = numberOfIncorrectCodes + 1; // incorrect code counter which goes up by 1
             }
         }
-    } else {
-        systemBlockedLed = ON;
+    } else { // Else...
+        systemBlockedLed = ON; // ... Block the system if too many incorrect attempts have been made
     }
 }
-
-void uartTask()
+void uartTask() // This handles UART communication.
 {
-    char receivedChar = '\0';
-    if( uartUsb.readable() ) {
-        uartUsb.read( &receivedChar, 1 );
-        if ( receivedChar == '1') {
+    char receivedChar = '\0'; // Initialises the received character
+    if( uartUsb.readable() ) { // If the data is available within the UART communication...
+        uartUsb.read( &receivedChar, 1 ); // ... then read one character at a time.
+        if ( receivedChar == '1') { // Checks the alarm state
             if ( alarmState ) {
-                uartUsb.write( "The alarm is activated\r\n", 24);
+                uartUsb.write( "The alarm is activated\r\n", 24); // This is printed in serial terminal
             } else {
-                uartUsb.write( "The alarm is not activated\r\n", 28);
+                uartUsb.write( "The alarm is not activated\r\n", 28); // This is printed in serial terminal
             }
         }
-        else if (receivedChar == '2') {
+        else if (receivedChar == '2') { // Checks the gas sensor
             if (gasDetector) {
-                uartUsb.write("Gas detector is triggered\r\n", 27);
+                uartUsb.write("Gas detector is triggered\r\n", 27); // This is printed in serial terminal
             } else {
-                uartUsb.write("Gas detector is not triggered\r\n", 32);
+                uartUsb.write("Gas detector is not triggered\r\n", 32); // This is printed in serial terminal
             }
         }
-        else if (receivedChar == '3') {
+        else if (receivedChar == '3') {// Checks temp detector
             if (overTempDetector) {
-                uartUsb.write("Over temperature detector is triggered\r\n", 41);
+                uartUsb.write("Over temperature detector is triggered\r\n", 41); // This is printed in serial terminal
             } else {
-                uartUsb.write("Over temperature detector is not triggered\r\n", 47);
+                uartUsb.write("Over temperature detector is not triggered\r\n", 47); // This is printed in serial terminal
             }
         }
         else {
-            availableCommands();
+            availableCommands(); // Displays available commands if an invalid character is received
         }
     }
 }
-
+// Lines 140-145 sends available commands to serial terminal
 void availableCommands()
 {
     uartUsb.write( "Available commands:\r\n", 21 );
@@ -146,44 +145,44 @@ void availableCommands()
     uartUsb.write( "Press '3' to get the over temperature detector state\r\n", 57 );
 }
 
-// New function to send the current status periodically (every 5 seconds)
-void sendStatus()
+// New function to send the current alarm state periodically
+void sendAlarmState()
 {
-    // Send the current alarm state
     if ( alarmState ) {
-        uartUsb.write("The alarm is activated\r\n", 24);
+        uartUsb.write("The alarm is activated\r\n", 24); // This is printed in serial terminal
     } else {
-        uartUsb.write("The alarm is not activated\r\n", 28);
+        uartUsb.write("The alarm is not activated\r\n", 28); // This is printed in serial terminal
     }
+}
 
     // Send the gas detector status
     if (gasDetector) {
-        uartUsb.write("Gas detector is triggered\r\n", 27);
+        uartUsb.write("Gas detector is triggered\r\n", 27); // This is printed in serial terminal
     } else {
-        uartUsb.write("Gas detector is not triggered\r\n", 32);
+        uartUsb.write("Gas detector is not triggered\r\n", 32); // This is printed in serial terminal
     }
 
     // Send the temperature detector (overTempDetector) status
     if (overTempDetector) {
-        uartUsb.write("Temperature Detector is triggered\r\n", 35);
+        uartUsb.write("Temperature Detector is triggered\r\n", 35); // This is printed in serial terminal
     } else {
-        uartUsb.write("Temperature Detector is not triggered\r\n", 41);
+        uartUsb.write("Temperature Detector is not triggered\r\n", 41); // This is printed in serial terminal
     }
 
     // Check if any sensor exceeds safe limits and send warnings
     checkForWarnings();
-}
+
 
 // New function to check if the gas or temperature exceeds safe limits
 void checkForWarnings()
 {
     // Check if gas detector is triggered (indicating unsafe gas levels)
     if (gasDetector) {
-        uartUsb.write("WARNING: Gas level exceeds safe limits!\r\n", 41);
+        uartUsb.write("WARNING: Gas level exceeds safe limits!\r\n", 41); // This is printed in serial terminal
     }
 
-    // Check if temperature exceeds safe limit (40°C assumed threshold)
+    // Check if temperature exceeds safe limit 
     if (overTempDetector) {
-        uartUsb.write("WARNING: Temperature exceeds safe limits!\r\n", 43);
+        uartUsb.write("WARNING: Temperature exceeds safe limits!\r\n", 43); // This is printed in serial terminal
     }
 }
