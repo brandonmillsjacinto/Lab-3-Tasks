@@ -5,7 +5,7 @@ Date: 13/02/2025
 
 #include "mbed.h" // I used the Mbed Library for Hardware control.
 #include "arm_book_lib.h" // I used the arm book library to use additional functions (i.e. ON, OFF, LED control etc.).
-
+#include <chrono> // This is used for time intervals
 DigitalIn enterButton(BUTTON1); // The enter button is mapped to BUTTON 1 (or B1 on the board) that is used to confirm any actions or reset the alarm.
     DigitalIn gasDetector(D2); // This defines a digital input for the gas detector sensor at pin D2.
     DigitalIn overTempDetector(D3); // This defines a digital input for the over-temperature sensor at pin D3.
@@ -26,7 +26,7 @@ UnbufferedSerial uartUsb(USBTX, USBRX, 115200); // Serial communication at 11520
  bool alarmState = OFF; // Bool variable to keep track of whether the alarm is on (true) or off (false).
     int numberOfIncorrectCodes = 0; // This line is a counter for the number of incorrect code attempts.
 
-Ticker alarmStateTicker;  // Ticker to send alarm state at regular intervals
+Ticker alarmStateTicker;;  // Ticker to send alarm state at regular intervals
 
 // Lines 32-38 are declaring the functions
 void inputsInit();
@@ -35,15 +35,15 @@ void alarmActivationUpdate();
 void alarmDeactivationUpdate();
 void uartTask();
 void availableCommands();
-void sendStatus();  // New function to send status periodically
+void sendAlarmState();  // New function to send status periodically
 
 int main()
 {
  inputsInit(); // Initialises input pins
     outputsInit(); // Initialises output pins
 
-    // Set up the Ticker to call sendAlarmState() every 5 seconds
-    alarmStateTicker.attach(&sendAlarmState, 5.0);  // Changed interval to 5 seconds
+    // Set up the Ticker to call alarmState() every 5 seconds
+    alarmStateTicker.attach(&sendAlarmState, 5s);  // Changed interval to 5 seconds
 
     while (true) {
          alarmActivationUpdate(); // Updates alarm activation
