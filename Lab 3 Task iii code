@@ -43,7 +43,7 @@ int main()
     outputsInit(); // Initialises output pins
 
     // Set up the Ticker to call alarmState() every 5 seconds
-    alarmStateTicker.attach(&sendAlarmState, 5s);  // Changed interval to 5 seconds
+    alarmStateTicker.attach(&sendAlarmState, 5s);  // 5 seconds intervals
 
     while (true) {
          alarmActivationUpdate(); // Updates alarm activation
